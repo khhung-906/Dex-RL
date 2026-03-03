@@ -12,7 +12,6 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as tvF
 from pytorch3d.transforms import (
     axis_angle_to_matrix,
-    axis_angle_to_quaternion,
     euler_angles_to_matrix,
     matrix_to_euler_angles,
     matrix_to_quaternion,
@@ -21,6 +20,17 @@ from pytorch3d.transforms import (
     quaternion_to_matrix,
     rotation_6d_to_matrix,
 )
+
+
+def axis_angle_to_quaternion(axis_angle: torch.Tensor) -> torch.Tensor:
+    """Convert axis-angle representation to quaternion (w, x, y, z).
+
+    This is a local replacement for pytorch3d.transforms.axis_angle_to_quaternion,
+    which is not available in all versions.
+    """
+    return matrix_to_quaternion(axis_angle_to_matrix(axis_angle))
+
+
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 

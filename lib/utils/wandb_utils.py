@@ -21,11 +21,23 @@ class WandbAlgoObserver(AlgoObserver):
         """
 
         import wandb
+        import os
 
         wandb_unique_id = f"uid_{experiment_name}"
         print(f"Wandb using unique id {wandb_unique_id}")
 
         cfg = self.cfg
+
+        # Construct the summaries directory path to patch tensorboard before init
+        # This matches the path structure in lib/rl/base.py
+        train_dir = config.get("train_dir", "runs")
+        summaries_dir = os.path.join(train_dir, experiment_name, "summaries")
+        
+        # Patch tensorboard before wandb.init() to avoid the warning about multiple log directories
+        try:
+            wandb.tensorboard.patch(root_logdir=summaries_dir)
+        except Exception as e:
+            print(f"Warning: Could not patch tensorboard: {e}")
 
         # this can fail occasionally, so we try a couple more times
         @retry(3, exceptions=(Exception,))
