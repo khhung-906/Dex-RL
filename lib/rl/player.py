@@ -195,7 +195,7 @@ class MyBasePlayer(object):
         else:
             self.h5py_file, self.s_grp, self.f_grp = None, None, None
             self.saved_successful_rollouts, self.saved_failed_rollouts = None, None
-            self.prev_done_count_sum = None
+            self.prev_done_count_sum = 0
 
     def wait_for_checkpoint(self):
         if self.dir_to_monitor is None:
@@ -495,6 +495,8 @@ class MyBasePlayer(object):
             done_count = len(done_indices)
 
             if done_count > 0:
+                self.prev_done_count_sum += done_count
+
                 if self.is_rnn:
                     for s in self.states:
                         s[:, all_done_indices, :] = s[:, all_done_indices, :] * 0.0
@@ -511,6 +513,12 @@ class MyBasePlayer(object):
                     cur_rewards_done = cur_rewards / done_count
                     cur_steps_done = cur_steps / done_count
                     print(f"reward: {cur_rewards_done:.2f} steps: {cur_steps_done:.1f}")
+
+                if self.prev_done_count_sum >= self.num_rollouts_to_run:
+                    if self.h5py_file is not None:
+                        self.h5py_file.close()
+                    print(f"Reached num_rollouts_to_run={self.num_rollouts_to_run}. Stopping evaluation.")
+                    return
 
     def get_batch_size(self, obses, batch_size):
         obs_shape = self.obs_shape

@@ -144,7 +144,7 @@ params:
     max_epochs: ${resolve_default:10000,${....max_iterations}}
     early_stop_epochs: ${resolve_default:500,${....early_stop_epochs}}
     save_best_after: 2
-    save_frequency: 100
+    save_frequency: 50
     print_stats: True
     grad_norm: 1.0
     entropy_coef: 0.0

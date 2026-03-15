@@ -40,7 +40,9 @@ class ManipDataFactory:
         else:
             is_mirrored = False
 
-        if type(index) == str and "@" in index:
+        if type(index) == str and index.startswith("sr_"):
+            dtype = "collected"
+        elif type(index) == str and "@" in index:
             dtype = "oakink2"
         elif type(index) == str and index.startswith("g"):
             dtype = "grabdemo"

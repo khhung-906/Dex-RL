@@ -480,6 +480,11 @@ class DexHandManipRHEnv(VecTask):
         )
         self.prev_targets = torch.zeros((self.num_envs, self.num_dofs), dtype=torch.float, device=self.device)
         self.curr_targets = torch.zeros((self.num_envs, self.num_dofs), dtype=torch.float, device=self.device)
+        self.episode_residual_action_sum = torch.zeros((self.num_envs,), dtype=torch.float, device=self.device)
+        self.episode_base_action_sum = torch.zeros((self.num_envs,), dtype=torch.float, device=self.device)
+        self.episode_action_count = torch.zeros((self.num_envs,), dtype=torch.float, device=self.device)
+        self.total_done_episodes = 0
+        self.total_success_episodes = 0
 
         if self.use_pid_control:
             self.prev_pos_error = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device)
@@ -868,6 +873,58 @@ class DexHandManipRHEnv(VecTask):
             scale_factor,
             self.dexhand.weight_idx,
         )
+
+        done_now = self.reset_buf.bool()
+        success_now = done_now & self.success_buf.bool()
+        failure_now = done_now & self.failure_buf.bool()
+
+        done_count = int(done_now.sum().item())
+        if (not self.training) and done_count > 0:
+            success_count = int(success_now.sum().item())
+            batch_success_rate = success_count / done_count
+            self.total_done_episodes += done_count
+            self.total_success_episodes += success_count
+            overall_success_rate = self.total_success_episodes / max(self.total_done_episodes, 1)
+            print(
+                f"[SuccessRate] batch={batch_success_rate:.4f} ({success_count}/{done_count}), "
+                f"overall={overall_success_rate:.4f} "
+                f"({self.total_success_episodes}/{self.total_done_episodes})"
+            )
+
+        if (not self.training) and torch.any(success_now):
+            success_residual_scale_per_env = (
+                self.episode_residual_action_sum[success_now]
+                / torch.clamp(self.episode_action_count[success_now], min=1.0)
+            )
+            success_base_scale_per_env = (
+                self.episode_base_action_sum[success_now]
+                / torch.clamp(self.episode_action_count[success_now], min=1.0)
+            )
+            success_residual_scale = success_residual_scale_per_env.mean()
+            success_base_scale = success_base_scale_per_env.mean()
+            success_ratio = (success_residual_scale_per_env / torch.clamp(success_base_scale_per_env, min=1e-6)).mean()
+            print(
+                f"[ActionScale] success residual={success_residual_scale.item():.6f}, "
+                f"base={success_base_scale.item():.6f}, ratio(res/base)={success_ratio.item():.6f}"
+            )
+
+        if (not self.training) and torch.any(failure_now):
+            failure_residual_scale_per_env = (
+                self.episode_residual_action_sum[failure_now]
+                / torch.clamp(self.episode_action_count[failure_now], min=1.0)
+            )
+            failure_base_scale_per_env = (
+                self.episode_base_action_sum[failure_now]
+                / torch.clamp(self.episode_action_count[failure_now], min=1.0)
+            )
+            failure_residual_scale = failure_residual_scale_per_env.mean()
+            failure_base_scale = failure_base_scale_per_env.mean()
+            failure_ratio = (failure_residual_scale_per_env / torch.clamp(failure_base_scale_per_env, min=1e-6)).mean()
+            print(
+                f"[ActionScale] failed residual={failure_residual_scale.item():.6f}, "
+                f"base={failure_base_scale.item():.6f}, ratio(res/base)={failure_ratio.item():.6f}"
+            )
+
         self.total_rew_buf += self.rew_buf
 
     def compute_observations(self):
@@ -1153,6 +1210,9 @@ class DexHandManipRHEnv(VecTask):
         self.apply_torque[env_ids] = 0
         self.curr_targets[env_ids] = 0
         self.prev_targets[env_ids] = 0
+        self.episode_residual_action_sum[env_ids] = 0
+        self.episode_base_action_sum[env_ids] = 0
+        self.episode_action_count[env_ids] = 0
 
         if self.use_pid_control:
             self.prev_pos_error[env_ids] = 0
@@ -1242,6 +1302,11 @@ class DexHandManipRHEnv(VecTask):
         )
         base_action = actions[:, :res_split_idx]  # ? in the range of [-1, 1]
         residual_action = actions[:, res_split_idx:] * 2  # ? the delta action is theoritically in the range of [-2, 2]
+        base_action_scale = base_action.abs().mean(dim=-1)
+        residual_action_scale = residual_action.abs().mean(dim=-1)
+        self.episode_base_action_sum += base_action_scale
+        self.episode_residual_action_sum += residual_action_scale
+        self.episode_action_count += 1
         dof_pos = (
             1.0 * base_action[:, root_control_dim : root_control_dim + self.num_dexhand_dofs]
             + residual_action[:, 6 : 6 + self.num_dexhand_dofs]

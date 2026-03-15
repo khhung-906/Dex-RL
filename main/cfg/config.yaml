@@ -37,7 +37,7 @@ torch_deterministic: False
 
 # set the maximum number of learning iterations to train for. overrides default per-environment setting
 max_iterations: 9999999999999  # train forever
-early_stop_epochs: 9999999999999
+early_stop_epochs: 300
 
 ## Device config
 #  'physx' or 'flex'
@@ -61,8 +61,8 @@ test: False
 # save rollouts config, used for distillation
 save_rollouts: False
 save_successful_rollouts_only: True
-num_rollouts_to_save: 20000
-num_rollouts_to_run: 9999999999999
+num_rollouts_to_save: 200
+num_rollouts_to_run: 1000
 min_episode_length: 20
 # used to set checkpoint path
 checkpoint: ''
@@ -72,11 +72,11 @@ sigma: ''
 # set to True to use multi-gpu training
 multi_gpu: False
 
-wandb_activate: False
-wandb_group: ''
+wandb_activate: True
+wandb_group: 'InspireHand'
 wandb_name: ${rl_train.params.config.name}
-wandb_entity: null  # set to your wandb entity if using wandb
-wandb_project: null  # set to your wandb project if using wandb
+wandb_entity: 'maxliu01-stanford-university'  # set to your wandb entity if using wandb
+wandb_project: 'Dex-RL'  # set to your wandb project if using wandb
 wandb_tags: []
 wandb_logcode_dir: '' 
 

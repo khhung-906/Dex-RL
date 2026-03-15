@@ -499,11 +499,22 @@ class DexManipSH_RH:
         self.gym.refresh_dof_force_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
 
-    def play(self):
+    def play(self, max_steps=None, frame_dir=None, frame_every=1):
         iter = 0
+        played_steps = 0
         dexhand_handle = self.gym.find_actor_handle(self.envs[0], "dexhand")
 
+        if frame_dir is not None and frame_every < 1:
+            raise ValueError("frame_every must be >= 1")
+        if frame_dir is not None and not self.headless:
+            os.makedirs(frame_dir, exist_ok=True)
+
         while True:
+            if max_steps is not None and played_steps >= max_steps:
+                break
+            if not self.headless and self.gym.query_viewer_has_closed(self.viewer):
+                break
+
             if iter >= len(self.rollout_seq["dq_" + ("rh" if self.side == "right" else "lh")]):
                 iter = 0
             self._root_state[:, dexhand_handle] = torch.tensor(
@@ -539,11 +550,19 @@ class DexManipSH_RH:
             if not self.headless:
                 self.gym.step_graphics(self.sim)
                 self.gym.draw_viewer(self.viewer, self.sim, False)
+                if frame_dir is not None and (played_steps % frame_every == 0):
+                    frame_path = os.path.join(frame_dir, f"frame_{played_steps:06d}.png")
+                    self.gym.write_viewer_image_to_file(self.viewer, frame_path)
             self.gym.sync_frame_time(self.sim)
 
             time.sleep(self.sim_params.dt)
 
             iter += 1
+            played_steps += 1
+
+        if not self.headless:
+            self.gym.destroy_viewer(self.viewer)
+        self.gym.destroy_sim(self.sim)
 
 
 class DexManipSH_LH(DexManipSH_RH):
