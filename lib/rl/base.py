@@ -585,6 +585,9 @@ class MyA2CBase(BaseAlgorithm):
         self.experience_buffer.tensor_dict["error_masks"] = self.experience_buffer._create_tensor_from_space(
             gym.spaces.Box(low=0, high=1, shape=(), dtype=np.float32), self.experience_buffer.obs_base_shape
         )
+        self.experience_buffer.tensor_dict["uncertainty"] = self.experience_buffer._create_tensor_from_space(
+            gym.spaces.Box(low=0, high=np.inf, shape=(), dtype=np.float32), self.experience_buffer.obs_base_shape
+        )
 
         val_shape = (self.horizon_length, batch_size, self.value_size)
         current_rewards_shape = (batch_size, self.value_size)
@@ -913,6 +916,9 @@ class MyA2CBase(BaseAlgorithm):
             if "error_masks" in infos:
                 self.experience_buffer.update_data("error_masks", n, infos["error_masks"])
 
+            if "uncertainty" in infos:
+                self.experience_buffer.update_data("uncertainty", n, infos["uncertainty"])
+
             step_time += step_time_end - step_time_start
 
             shaped_rewards = self.rewards_shaper(rewards)
@@ -1013,6 +1019,9 @@ class MyA2CBase(BaseAlgorithm):
 
             step_time += step_time_end - step_time_start
 
+            if "uncertainty" in infos:
+                self.experience_buffer.update_data("uncertainty", n, infos["uncertainty"])
+
             shaped_rewards = self.rewards_shaper(rewards)
 
             if self.value_bootstrap and "time_outs" in infos:
@@ -1109,7 +1118,7 @@ class MyContinuousA2CBase(MyA2CBase):
         MyA2CBase.init_tensors(self)
         self.update_list = ["actions", "neglogpacs", "values", "mus", "sigmas"]
         self.tensor_list = self.update_list + ["obses", "states", "dones"]
-        self.tensor_list = self.tensor_list + ["error_masks"]
+        self.tensor_list = self.tensor_list + ["error_masks", "uncertainty"]
 
     def train_epoch(self):
         super().train_epoch()
@@ -1221,6 +1230,7 @@ class MyContinuousA2CBase(MyA2CBase):
         rnn_states = batch_dict.get("rnn_states", None)
         rnn_masks = batch_dict.get("rnn_masks", None)
         error_masks = batch_dict.get("error_masks", None)
+        uncertainty = batch_dict.get("uncertainty", None)
 
         advantages = returns - values
 
@@ -1265,6 +1275,7 @@ class MyContinuousA2CBase(MyA2CBase):
         dataset_dict["error_masks"] = error_masks
         dataset_dict["mu"] = mus
         dataset_dict["sigma"] = sigmas
+        dataset_dict["uncertainty"] = uncertainty
 
         self.dataset.update_values_dict(dataset_dict)
 

@@ -44,6 +44,7 @@ class PPOAgent(MyContinuousA2CBase):
         self.init_rnn_from_model(self.model)
         self.last_lr = float(self.last_lr)
         self.bound_loss_type = self.config.get("bound_loss_type", "bound")  # 'regularisation' or 'bound'
+        self.uncertainty_loss_coeff = self.config.get("uncertainty_loss_coeff", 0.0)
         self.optimizer = optim.Adam(
             self.model.parameters(),
             float(self.last_lr),
@@ -189,6 +190,15 @@ class PPOAgent(MyContinuousA2CBase):
             loss = (
                 a_loss + 0.5 * c_loss * self.critic_coef - entropy * self.entropy_coef + b_loss * self.bounds_loss_coef
             )
+
+            # Option B: uncertainty-aware loss — encourage larger residuals when far from the demo distribution.
+            # Gradient: -d/dtheta E[uncertainty * ||mu||] pushes the policy to increase ||mu|| where uncertainty is high.
+            if self.uncertainty_loss_coeff > 0.0:
+                uncertainty = input_dict.get("uncertainty", None)
+                if uncertainty is not None:
+                    residual_norm = mu.norm(dim=-1)  # [batch]
+                    uncertainty_loss = -(uncertainty * residual_norm).mean()
+                    loss = loss + self.uncertainty_loss_coeff * uncertainty_loss
 
             if self.multi_gpu:
                 self.optimizer.zero_grad()

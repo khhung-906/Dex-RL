@@ -23,6 +23,8 @@ randomStateInit: True
 rolloutLen: null
 rolloutBegin: null
 
+uncertaintyCoeff: 0.0
+
 learning_rate: 5e-4
 actionsMovingAverage: 1.0
 
@@ -75,7 +77,7 @@ multi_gpu: False
 wandb_activate: True
 wandb_group: 'InspireHand'
 wandb_name: ${rl_train.params.config.name}
-wandb_entity: 'maxliu01-stanford-university'  # set to your wandb entity if using wandb
+wandb_entity: 'johnson090626'  # set to your wandb entity if using wandb
 wandb_project: 'Dex-RL'  # set to your wandb project if using wandb
 wandb_tags: []
 wandb_logcode_dir: '' 

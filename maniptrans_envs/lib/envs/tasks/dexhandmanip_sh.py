@@ -103,6 +103,8 @@ class DexHandManipRHEnv(VecTask):
         self.rollout_len = self.cfg["env"].get("rolloutLen", None)
         self.rollout_begin = self.cfg["env"].get("rolloutBegin", None)
 
+        self.uncertainty_coeff = self.cfg["env"].get("uncertaintyCoeff", 0.0)
+
         assert len(self.dataIndices) == 1 or self.rollout_len is None, "rolloutLen only works with one data"
         assert len(self.dataIndices) == 1 or self.rollout_begin is None, "rolloutBegin only works with one data"
 
@@ -485,6 +487,7 @@ class DexHandManipRHEnv(VecTask):
         self.episode_action_count = torch.zeros((self.num_envs,), dtype=torch.float, device=self.device)
         self.total_done_episodes = 0
         self.total_success_episodes = 0
+        self.uncertainty_buf = torch.zeros((self.num_envs,), dtype=torch.float, device=self.device)
 
         if self.use_pid_control:
             self.prev_pos_error = torch.zeros((self.num_envs, 3), dtype=torch.float, device=self.device)
@@ -874,6 +877,25 @@ class DexHandManipRHEnv(VecTask):
             self.dexhand.weight_idx,
         )
 
+        if self.uncertainty_coeff > 0.0 and actions is not None:
+            # Uncertainty = min L2 distance from current wrist pos to any timestep in this env's demo trajectory.
+            # High uncertainty means the agent is far from the demonstrated distribution → residual should correct more.
+            cur_wrist_pos = self.states["base_state"][:, :3]  # [num_envs, 3]
+            demo_wrist_pos = self.demo_data["wrist_pos"]  # [num_envs, T, 3]
+            dists = torch.norm(demo_wrist_pos - cur_wrist_pos[:, None, :], dim=-1)  # [num_envs, T]
+            self.uncertainty_buf[:] = dists.min(dim=-1).values  # [num_envs]
+
+            res_split_idx = actions.shape[1] // 2
+            residual_action = actions[:, res_split_idx:]  # [num_envs, res_dim]
+            residual_norm = torch.norm(residual_action, dim=-1)  # [num_envs]
+
+            # Option B: reward agent for taking larger residuals when uncertain (positive shaping term)
+            uncertainty_reward = self.uncertainty_coeff * self.uncertainty_buf * residual_norm
+            self.rew_buf += uncertainty_reward
+            self.reward_dict["uncertainty_reward"] = uncertainty_reward
+        else:
+            self.uncertainty_buf[:] = 0.0
+
         done_now = self.reset_buf.bool()
         success_now = done_now & self.success_buf.bool()
         failure_now = done_now & self.failure_buf.bool()
@@ -1213,6 +1235,7 @@ class DexHandManipRHEnv(VecTask):
         self.episode_residual_action_sum[env_ids] = 0
         self.episode_base_action_sum[env_ids] = 0
         self.episode_action_count[env_ids] = 0
+        self.uncertainty_buf[env_ids] = 0
 
         if self.use_pid_control:
             self.prev_pos_error[env_ids] = 0
@@ -1258,6 +1281,7 @@ class DexHandManipRHEnv(VecTask):
         info["reward_dict"] = self.reward_dict
         info["total_rewards"] = self.total_rew_buf
         info["total_steps"] = self.progress_buf
+        info["uncertainty"] = self.uncertainty_buf
         return obs, rew, done, info
 
     def pre_physics_step(self, actions):

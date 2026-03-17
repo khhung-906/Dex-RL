@@ -23,6 +23,10 @@ env:
   rolloutLen: ${resolve_default:None,${...rolloutLen}}
   rolloutBegin: ${resolve_default:None,${...rolloutBegin}}
 
+  # Uncertainty-aware residual: min-distance from current wrist pos to any demo timestep.
+  # Set > 0 together with uncertainty_loss_coeff in ResDexHandPPO.yaml to activate.
+  uncertaintyCoeff: ${resolve_default:0.0,${...uncertaintyCoeff}}
+
   clipObservations: 5.0
   clipActions: 1.0
 

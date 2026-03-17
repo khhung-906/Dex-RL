@@ -13,6 +13,10 @@ class WandbAlgoObserver(AlgoObserver):
     def __init__(self, cfg):
         super().__init__()
         self.cfg = cfg
+        self.algo = None
+
+    def after_init(self, algo):
+        self.algo = algo
 
     def before_init(self, base_name, config, experiment_name):
         """
@@ -50,7 +54,7 @@ class WandbAlgoObserver(AlgoObserver):
                 sync_tensorboard=True,
                 id=wandb_unique_id,
                 name=experiment_name,
-                resume=True,
+                resume="never",
                 settings=wandb.Settings(start_method="fork"),
             )
 
@@ -59,15 +63,36 @@ class WandbAlgoObserver(AlgoObserver):
                 print("wandb running directory........", wandb.run.dir)
 
         print("Initializing WandB...")
+        wandb_initialized = False
         try:
             init_wandb()
+            wandb_initialized = True
         except Exception as exc:
             print(f"Could not initialize WandB! {exc}")
 
-        if isinstance(self.cfg, dict):
-            wandb.config.update(self.cfg, allow_val_change=True)
-        else:
-            wandb.config.update(omegaconf_to_dict(self.cfg), allow_val_change=True)
+        if wandb_initialized:
+            if isinstance(self.cfg, dict):
+                wandb.config.update(self.cfg, allow_val_change=True)
+            else:
+                wandb.config.update(omegaconf_to_dict(self.cfg), allow_val_change=True)
+
+    def after_print_stats(self, frame, epoch_num, total_time):
+        """Explicitly log success_rate, fail_rate, episode_lengths to wandb (tensorboard sync can miss these)."""
+        try:
+            if not getattr(wandb, "run", None) or self.algo is None:
+                return
+            log_dict = {}
+            if self.algo.game_success.current_size > 0:
+                log_dict["success_rate"] = float(self.algo.game_success.get_mean())
+            if self.algo.game_fails.current_size > 0:
+                log_dict["fail_rate"] = float(self.algo.game_fails.get_mean())
+            if self.algo.game_rewards.current_size > 0:
+                log_dict["episode_reward"] = float(self.algo.game_rewards.get_mean()[0])
+                log_dict["episode_length"] = float(self.algo.game_lengths.get_mean())
+            if log_dict:
+                wandb.log(log_dict, step=frame)
+        except Exception:
+            pass
 
 
 class WandbVideoCaptureWrapper(gym.Wrapper):
