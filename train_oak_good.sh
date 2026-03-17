@@ -22,7 +22,7 @@ OAKINK_IDX=75a7a@1
 
 # # Step 2: Train RL policy on OakInk task
 UNCERTAINTY_COEFF="0.0"       # env reward shaping: + uncertainty * residual_norm bonus
-UNCERTAINTY_LOSS_COEFF="0.0001"  # PPO loss:           - uncertainty * ||mu|| gradient term
+UNCERTAINTY_LOSS_COEFF="0.01"  # PPO loss:           - uncertainty * ||mu|| gradient term
 
 python main/rl/train.py \
     task=ResDexHand \
