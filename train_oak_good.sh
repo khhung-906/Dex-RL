@@ -2,18 +2,6 @@
 # Train on OakInk-V2 single-hand task (format: data_idx = hash@stage, e.g. 0b3d1@0 or 20aed@0).
 # List available OakInk tasks: python list_tasks.py oakink2
 
-#SBATCH --partition=iris
-#SBATCH --time=120:00:00
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=12
-#SBATCH --mem=60G
-#SBATCH --gres=gpu:1
-#SBATCH --account=iris
-#SBATCH --output=runs/results/%A.out
-#SBATCH --error=runs/results/%A.err
-#SBATCH --job-name="rl"
-#SBATCH --exclude=iliad1,iliad2,iliad3,iliad4,iliad-hgx-1,iris1,iris2,iris3,iris4,iris5
-
 export LD_LIBRARY_PATH=/iliad/u/khhung/miniconda3/envs/rlgpu/lib:$LD_LIBRARY_PATH
 export WANDB_MODE=online
 
