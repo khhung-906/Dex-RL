@@ -86,10 +86,25 @@ Notes:
 - You can edit defaults (e.g., `DATA_INDICES`, `EXPERIMENT_BASE`, `NUM_ENVS`) directly in each script.
 
 
-## 2. Uncertainty Aware Training Sctipts
+## 2. Uncertainty Aware Training Scripts
+
+### 2.1 `train_oak_good.sh`
+Train residual RL on OakInk-V2 with uncertainty-aware terms enabled.
+
+Basic usage:
 ```bash
+# Run with default task and uncertainty coefficients defined in the script
 bash train_oak_good.sh
 ```
+
+Default key settings in script:
+- `UNCERTAINTY_COEFF=0.0`: uncertainty reward shaping coefficient.
+- `UNCERTAINTY_LOSS_COEFF=0.01`: uncertainty-related PPO loss coefficient.
+
+Notes:
+- This script currently uses fixed values; edit variables directly in `train_oak_good.sh` when switching tasks or hyperparameters.
+- `dataIndices` is passed as `[${OAKINK_IDX}]`, so `OAKINK_IDX` should follow `hash@stage` format (e.g., `0b3d1@0`).
+- Base imitation checkpoints are loaded from `assets/imitator_rh_inspire.pth` and `assets/imitator_lh_inspire.pth`.
 
 
 ---
