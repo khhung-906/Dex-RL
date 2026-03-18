@@ -16,4 +16,4 @@ bash train_oak_good.sh
 
 ## Acknowledgements
 
-This codebase is modified from the ManipTrans repository. We thank the original authors for their implementation and contributions.
+This codebase is modified from the [ManipTrans](https://github.com/ManipTrans/ManipTrans) repository. We thank the original authors for their implementation and contributions.
